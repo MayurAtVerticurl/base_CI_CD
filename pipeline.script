@@ -1,0 +1,94 @@
+pipeline {
+    agent any
+
+    tools {
+        nodejs 'node'
+        jdk 'Java 17'
+    }
+    
+    stages {
+        stage('Cleanup Workspace') {
+            steps {
+                deleteDir()
+            }
+        }
+
+        stage('Pull code from Github') {
+            steps {
+                git branch: 'main', url: 'https://github.com/MayurAtVerticurl/weatherMS1-fetchWeather.git'
+            }
+        }
+        
+        stage('Install Project Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+
+        stage('Run Unit Tests') {
+            steps {
+                sh 'npm test'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    def scannerHome = tool 'sonarscanner'
+                    withCredentials([string(credentialsId: 'sonar-project-key', variable: 'SONAR_PROJECT_KEY')]) {
+                        withSonarQubeEnv('sonarserver') {
+                            sh "${scannerHome}/bin/sonar-scanner \
+                                -Dsonar.projectKey=$SONAR_PROJECT_KEY \
+                                -Dsonar.sources=."
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Docker Login') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh "docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD"
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    // Check if the Docker image already exists
+                    def existingImage = sh(script: 'docker images -q mayuratverticurl/ms1weatherjenkins:latest', returnStdout: true).trim()
+
+                    // If the image exists, remove it
+                    if (existingImage) {
+                        echo "Removing existing Docker image..."
+                        sh "docker rmi $existingImage"
+                    }
+
+                    // Build the Docker image
+                    echo "Building Docker image..."
+                    sh 'docker build -t mayuratverticurl/ms1weatherjenkins:latest .'
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                sh 'docker push mayuratverticurl/ms1weatherjenkins:latest'
+            }
+        }
+
+        stage('Deploy in Kubernetes') {
+            steps {
+                script {
+                    // Delete the existing pod if available
+                    sh "kubectl delete pod my-pod --ignore-not-found=true"
+
+                    // Deploy the new pod using kubectl
+                    sh "kubectl run my-pod --image=mayuratverticurl/ms1weatherjenkins:latest --restart=Never"
+                }
+            }
+        }
+    }
+}

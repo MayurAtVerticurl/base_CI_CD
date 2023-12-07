@@ -1,0 +1,36 @@
+// use JAVA 17 for Sonar to work Properly
+apt install openjdk-17-jdk openjdk-17-jre
+
+#install jenkins
+
+#install node js plugin in jenkins & mention the name in tool section (refer pipeline code)
+
+configure git
+
+// giving jenkins the docker permissions
+sudo usermod -aG docker jenkins
+chown root:docker /var/run/docker.sock
+systemctl restart jenkins
+
+
+
+# Sonar Server 
+src : https://youtu.be/bIYc-0ZomS4?si=ctaIPi1HO0OJkXMv
+
+// use JAVA 17 for Sonar to work Properly
+apt install openjdk-17-jdk openjdk-17-jre
+
+export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+
+echo $JAVA_HOME
+
+// paste this java home in your jenkins JAVA_HOME and paste the name in Pipeline (refer pipeline code)
+
+
+
+# Kube jenkins config 
+cp -r $HOME/.kube /var/lib/jenkins/
+cd /var/lib/jenkins/.kube
+chown jenkins:jenkins config
+ ls -ld config
+systemctl restart jenkins
